@@ -441,12 +441,24 @@ namespace Microsoft.Net.Http.Headers
             return current - startIndex;
         }
 
-        private static int GetMediaTypeExpressionLength(string input, int startIndex, out string mediaType)
+        internal static int ParseMediaTypeExpresion<T, K>(
+            string input,
+            int startIndex,
+            out K mediaType,
+            Func<string, int, int, T> typeAndSubtypeFactory,
+            Func<T, T, K> typeAndSubtypeCombinator)
         {
             Contract.Requires((input != null) && (input.Length > 0) && (startIndex < input.Length));
 
             // This method just parses the "type/subtype" string, it does not parse parameters.
-            mediaType = null;
+            // typeAndSubtypeFactory can be called with the full media type in case it is a contiguous
+            // segment within the media type.
+            // typeAndSubtypeCombinator can be called with the full media type as the first argument
+            // and default(T) as the second argument.
+            // It's important that these two functions don't capture any external context to prevent
+            // unnecessary allocations due to the creation of closures.
+
+            mediaType = default(K);
 
             // Parse the type, i.e. <type> in media type string "<type>/<subtype>; param1=value1; param2=value2"
             var typeLength = HttpRuleParser.GetTokenLength(input, startIndex);
@@ -480,14 +492,28 @@ namespace Microsoft.Net.Http.Headers
             var mediaTypeLength = current + subtypeLength - startIndex;
             if (typeLength + subtypeLength + 1 == mediaTypeLength)
             {
-                mediaType = input.Substring(startIndex, mediaTypeLength);
+                mediaType = typeAndSubtypeCombinator(
+                    typeAndSubtypeFactory(input, startIndex, mediaTypeLength),
+                    default(T));
             }
             else
             {
-                mediaType = input.Substring(startIndex, typeLength) + "/" + input.Substring(current, subtypeLength);
+                mediaType = typeAndSubtypeCombinator(
+                    typeAndSubtypeFactory(input, startIndex, typeLength),
+                    typeAndSubtypeFactory(input, current, subtypeLength));
             }
 
             return mediaTypeLength;
+        }
+
+        private static int GetMediaTypeExpressionLength(string input, int startIndex, out string mediaType)
+        {
+            return ParseMediaTypeExpresion(
+                input,
+                startIndex,
+                out mediaType,
+                (buffer, start, length) => buffer.Substring(start, length),
+                (type, subtype) => subtype == null ? type : type + "/" + subtype);
         }
 
         private static void CheckMediaTypeFormat(string mediaType, string parameterName)

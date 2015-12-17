@@ -22,5 +22,8 @@
         "System.Runtime": "4.0.21-*"
       }
     }
+  },
+  "dependencies": {
+    "Microsoft.Extensions.Primitives": "1.0.0-*"
   }
 }

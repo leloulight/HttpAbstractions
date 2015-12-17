@@ -227,10 +227,35 @@ namespace Microsoft.Net.Http.Headers
 
         private static int GetNameValueLength(string input, int startIndex, out NameValueHeaderValue parsedValue)
         {
+            return ParseNameValueHeader(
+                input,
+                startIndex,
+                out parsedValue,
+                (buffer, offset, length) => buffer.Substring(offset, length),
+                (name, value) =>
+                {
+                    if (value == null)
+                    {
+                        return new NameValueHeaderValue(name);
+                    }
+                    else
+                    {
+                        return new NameValueHeaderValue(name, value);
+                    }
+                });
+        }
+
+        internal static int ParseNameValueHeader<T, K>(
+            string input,
+            int startIndex,
+            out K parsedValue,
+            Func<string, int, int, T> nameAndValueFactory,
+            Func<T, T, K> nameAndValueCombinator)
+        {
             Contract.Requires(input != null);
             Contract.Requires(startIndex >= 0);
 
-            parsedValue = null;
+            parsedValue = default(K);
 
             if (string.IsNullOrEmpty(input) || (startIndex >= input.Length))
             {
@@ -254,8 +279,7 @@ namespace Microsoft.Net.Http.Headers
             if ((current == input.Length) || (input[current] != '='))
             {
                 // We only have a name and that's OK. Return.
-                parsedValue = new NameValueHeaderValue();
-                parsedValue._name = name;
+                parsedValue = nameAndValueCombinator(nameAndValueFactory(input, startIndex, nameLength), default(T));
                 current = current + HttpRuleParser.GetWhitespaceLength(input, current); // skip whitespaces
                 return current - startIndex;
             }
@@ -268,9 +292,10 @@ namespace Microsoft.Net.Http.Headers
 
             // Value after the '=' may be empty
             // Use parameterless ctor to avoid double-parsing of name and value, i.e. skip public ctor validation.
-            parsedValue = new NameValueHeaderValue();
-            parsedValue._name = name;
-            parsedValue._value = input.Substring(current, valueLength);
+            parsedValue = nameAndValueCombinator(
+                nameAndValueFactory(input, startIndex, nameLength),
+                nameAndValueFactory(input, current, valueLength));
+
             current = current + valueLength;
             current = current + HttpRuleParser.GetWhitespaceLength(input, current); // skip whitespaces
             return current - startIndex;
