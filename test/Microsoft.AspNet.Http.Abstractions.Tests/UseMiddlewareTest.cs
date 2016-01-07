@@ -55,6 +55,17 @@ namespace Microsoft.AspNet.Http
         }
 
         [Fact]
+        public async Task UseMiddleware_ThrowsIfArgCantBeResolvedFromContainer()
+        {
+            var mockServiceProvider = new DummyServiceProvider();
+            var builder = new ApplicationBuilder(mockServiceProvider);
+            builder.UseMiddleware(typeof(MiddlewareInjectInvokeNoService));
+            var app = builder.Build();
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => app(new DefaultHttpContext()));
+            Assert.Equal(Resources.FormatException_InvokeMiddlewareNoService(typeof(object), typeof(MiddlewareInjectInvokeNoService)), exception.Message);
+        }
+
+        [Fact]
         public void UseMiddlewareWithInvokeArg()
         {
             var mockServiceProvider = new DummyServiceProvider();
@@ -62,6 +73,15 @@ namespace Microsoft.AspNet.Http
             builder.UseMiddleware(typeof(MiddlewareInjectInvoke));
             var app = builder.Build();
             app(new DefaultHttpContext());
+        }
+
+        [Fact]
+        public void UseMiddlewareWithIvokeWithOutAndRefThrows()
+        {
+            var mockServiceProvider = new DummyServiceProvider();
+            var builder = new ApplicationBuilder(mockServiceProvider);
+            builder.UseMiddleware(typeof(MiddlewareInjectWithOutAndRefParams));
+            var exception = Assert.Throws<NotSupportedException>(() => builder.Build());
         }
 
         private class DummyServiceProvider : IServiceProvider
@@ -75,6 +95,33 @@ namespace Microsoft.AspNet.Http
                 return null;
             }
         }
+
+        public class MiddlewareInjectWithOutAndRefParams
+        {
+            public MiddlewareInjectWithOutAndRefParams(RequestDelegate next)
+            {
+            }
+
+            public Task Invoke(HttpContext context, ref IServiceProvider sp1, out IServiceProvider sp2)
+            {
+                sp1 = null;
+                sp2 = null;
+                return Task.FromResult(0);
+            }
+        }
+
+        private class MiddlewareInjectInvokeNoService
+        {
+            public MiddlewareInjectInvokeNoService(RequestDelegate next)
+            {
+            }
+
+            public Task Invoke(HttpContext context, object value)
+            {
+                return Task.FromResult(0);
+            }
+        }
+
         private class MiddlewareInjectInvoke
         {
             public MiddlewareInjectInvoke(RequestDelegate next)

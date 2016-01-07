@@ -136,18 +136,23 @@ namespace Microsoft.AspNet.Builder
             var middleware = typeof(T);
 
             var httpContextArg = Expression.Parameter(typeof(HttpContext), "httpContext");
-            var providerArg = Expression.Parameter(typeof(IServiceProvider), "provider");
-            var instanceArg = Expression.Parameter(middleware, "instance");
+            var providerArg = Expression.Parameter(typeof(IServiceProvider), "serviceProvider");
+            var instanceArg = Expression.Parameter(middleware, "middleware");
 
             var methodArguments = new Expression[parameters.Length];
             methodArguments[0] = httpContextArg;
             for (int i = 1; i < parameters.Length; i++)
             {
                 var parameterType = parameters[i].ParameterType;
+                if (parameterType.IsByRef)
+                {
+                    throw new NotSupportedException(Resources.FormatException_InvokeDoesNotSupportRefOrOutParams(InvokeMethodName));
+                }
+
                 var parameterTypeExpression = new Expression[] {
                         providerArg,
                         Expression.Constant(parameterType, typeof(Type)),
-                        Expression.Constant(middleware, typeof(Type))
+                        Expression.Constant(methodinfo.DeclaringType, typeof(Type))
                     };
                 methodArguments[i] = Expression.Convert(Expression.Call(GetServiceInfo, parameterTypeExpression), parameterType);
             }
@@ -160,18 +165,17 @@ namespace Microsoft.AspNet.Builder
 
             var body = Expression.Call(middlewareInstanceArg, methodinfo, methodArguments);
 
-            var lambda = Expression.Lambda<Func<T, HttpContext, IServiceProvider, Task>>(
-                body, instanceArg, httpContextArg, providerArg);
+            var lambda = Expression.Lambda<Func<T, HttpContext, IServiceProvider, Task>>(body, instanceArg, httpContextArg, providerArg);
 
             return lambda.Compile();
         }
 
-        private static object GetService(IServiceProvider sp, Type type, Type requiredBy)
+        private static object GetService(IServiceProvider sp, Type type, Type middleware)
         {
             var service = sp.GetService(type);
             if (service == null)
             {
-                throw new InvalidOperationException($"Unable to resolve service for type '{type}' while attempting to Invoke middleware {requiredBy}'.");
+                throw new InvalidOperationException(Resources.FormatException_InvokeMiddlewareNoService(type, middleware));
             }
 
             return service;
