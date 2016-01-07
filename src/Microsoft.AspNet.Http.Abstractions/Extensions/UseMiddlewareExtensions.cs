@@ -19,8 +19,7 @@ namespace Microsoft.AspNet.Builder
     {
         private const string InvokeMethodName = "Invoke";
 
-        private static readonly MethodInfo GetServiceInfo =
-           GetMethodInfo<Func<IServiceProvider, Type, Type, object>>((sp, type, middleware) => GetService(sp, type, middleware));
+        private static readonly MethodInfo GetServiceInfo = typeof(UseMiddlewareExtensions).GetMethod(nameof(GetService), BindingFlags.NonPublic | BindingFlags.Static);
 
         /// <summary>
         /// Adds a middleware type to the application's request pipeline.
@@ -165,12 +164,6 @@ namespace Microsoft.AspNet.Builder
                 body, instanceArg, httpContextArg, providerArg);
 
             return lambda.Compile();
-        }
-
-        private static MethodInfo GetMethodInfo<T>(Expression<T> expr)
-        {
-            var mc = (MethodCallExpression)expr.Body;
-            return mc.Method;
         }
 
         private static object GetService(IServiceProvider sp, Type type, Type requiredBy)
