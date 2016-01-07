@@ -2,9 +2,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Linq;
+using System.Text.Encodings.Web;
+using System.Collections.Generic;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Extensions.WebEncoders;
 using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.AspNet.Http.Internal
@@ -38,8 +38,8 @@ namespace Microsoft.AspNet.Http.Internal
         public void Append(string key, string value)
         {
             var setCookieHeaderValue = new SetCookieHeaderValue(
-                    UrlEncoder.Default.UrlEncode(key),
-                    UrlEncoder.Default.UrlEncode(value))
+                    UrlEncoder.Default.Encode(key),
+                    UrlEncoder.Default.Encode(value))
             {
                 Path = "/"
             };
@@ -61,8 +61,8 @@ namespace Microsoft.AspNet.Http.Internal
             }
 
             var setCookieHeaderValue = new SetCookieHeaderValue(
-                    UrlEncoder.Default.UrlEncode(key),
-                    UrlEncoder.Default.UrlEncode(value))
+                    UrlEncoder.Default.Encode(key),
+                    UrlEncoder.Default.Encode(value))
             {
                 Domain = options.Domain,
                 Path = options.Path,
@@ -80,19 +80,7 @@ namespace Microsoft.AspNet.Http.Internal
         /// <param name="key"></param>
         public void Delete(string key)
         {
-            var encodedKeyPlusEquals = UrlEncoder.Default.UrlEncode(key) + "=";
-            Func<string, bool> predicate = value => value.StartsWith(encodedKeyPlusEquals, StringComparison.OrdinalIgnoreCase);
-
-            StringValues deleteCookies = encodedKeyPlusEquals + "; expires=Thu, 01-Jan-1970 00:00:00 GMT";
-            var existingValues = Headers[HeaderNames.SetCookie];
-            if (StringValues.IsNullOrEmpty(existingValues))
-            {
-                Headers[HeaderNames.SetCookie] = deleteCookies;
-            }
-            else
-            {
-                Headers[HeaderNames.SetCookie] = existingValues.Where(value => !predicate(value)).Concat(deleteCookies).ToArray();
-            }
+            Delete(key, new CookieOptions() { Path = "/" });
         }
 
         /// <summary>
@@ -106,33 +94,44 @@ namespace Microsoft.AspNet.Http.Internal
             {
                 throw new ArgumentNullException(nameof(options));
             }
-
-            var encodedKeyPlusEquals = UrlEncoder.Default.UrlEncode(key) + "=";
+            
+            var encodedKeyPlusEquals = UrlEncoder.Default.Encode(key) + "=";
             bool domainHasValue = !string.IsNullOrEmpty(options.Domain);
             bool pathHasValue = !string.IsNullOrEmpty(options.Path);
 
-            Func<string, bool> rejectPredicate;
+            Func<string, string, CookieOptions, bool> rejectPredicate;
             if (domainHasValue)
             {
-                rejectPredicate = value =>
-                    value.StartsWith(encodedKeyPlusEquals, StringComparison.OrdinalIgnoreCase) &&
-                        value.IndexOf("domain=" + options.Domain, StringComparison.OrdinalIgnoreCase) != -1;
+                rejectPredicate = (value, encKeyPlusEquals, opts) =>
+                    value.StartsWith(encKeyPlusEquals, StringComparison.OrdinalIgnoreCase) &&
+                        value.IndexOf($"domain={opts.Domain}", StringComparison.OrdinalIgnoreCase) != -1;
             }
             else if (pathHasValue)
             {
-                rejectPredicate = value =>
-                    value.StartsWith(encodedKeyPlusEquals, StringComparison.OrdinalIgnoreCase) &&
-                        value.IndexOf("path=" + options.Path, StringComparison.OrdinalIgnoreCase) != -1;
+                rejectPredicate = (value, encKeyPlusEquals, opts) =>
+                    value.StartsWith(encKeyPlusEquals, StringComparison.OrdinalIgnoreCase) &&
+                        value.IndexOf($"path={opts.Path}", StringComparison.OrdinalIgnoreCase) != -1;
             }
             else
             {
-                rejectPredicate = value => value.StartsWith(encodedKeyPlusEquals, StringComparison.OrdinalIgnoreCase);
+                rejectPredicate = (value, encKeyPlusEquals, opts) => value.StartsWith(encKeyPlusEquals, StringComparison.OrdinalIgnoreCase);
             }
 
             var existingValues = Headers[HeaderNames.SetCookie];
             if (!StringValues.IsNullOrEmpty(existingValues))
             {
-                Headers[HeaderNames.SetCookie] = existingValues.Where(value => !rejectPredicate(value)).ToArray();
+                var values = existingValues.ToArray();
+                var newValues = new List<string>();
+
+                for (var i = 0; i < values.Length; i++)
+                {
+                    if (!rejectPredicate(values[i], encodedKeyPlusEquals, options))
+                    {
+                        newValues.Add(values[i]);
+                    }
+                }
+                
+                Headers[HeaderNames.SetCookie] = new StringValues(newValues.ToArray());
             }
 
             Append(key, string.Empty, new CookieOptions

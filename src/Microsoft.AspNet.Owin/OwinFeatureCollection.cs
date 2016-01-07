@@ -17,7 +17,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNet.Http;
 using Microsoft.AspNet.Http.Features;
 using Microsoft.AspNet.Http.Features.Authentication;
-using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.AspNet.Owin
 {
@@ -45,14 +44,11 @@ namespace Microsoft.AspNet.Owin
             SupportsWebSockets = true;
 
             var register = Prop<Action<Action<object>, object>>(OwinConstants.CommonKeys.OnSendingHeaders);
-            if (register != null)
+            register?.Invoke(state =>
             {
-                register(state =>
-                {
-                    var collection = (OwinFeatureCollection)state;
-                    collection._headersSent = true;
-                }, this);
-            }
+                var collection = (OwinFeatureCollection)state;
+                collection._headersSent = true;
+            }, this);
         }
 
         T Prop<T>(string key)
@@ -360,6 +356,16 @@ namespace Microsoft.AspNet.Owin
         public void Set(Type key, object value)
         {
             throw new NotSupportedException();
+        }
+
+        public TFeature Get<TFeature>()
+        {
+            return (TFeature)this[typeof(TFeature)];
+        }
+
+        public void Set<TFeature>(TFeature instance)
+        {
+            this[typeof(TFeature)] = instance;
         }
 
         IEnumerator IEnumerable.GetEnumerator()

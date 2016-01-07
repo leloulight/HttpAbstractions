@@ -35,7 +35,7 @@ namespace Microsoft.AspNet.WebUtilities
             }
         }
 
-        public IDictionary<string, StringValues> Headers { get; set; }
+        public Dictionary<string, StringValues> Headers { get; set; }
 
         public Stream Body { get; set; }
 

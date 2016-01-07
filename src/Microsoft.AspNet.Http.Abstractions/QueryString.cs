@@ -4,8 +4,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Encodings.Web;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Extensions.WebEncoders;
 
 namespace Microsoft.AspNet.Http
 {
@@ -17,7 +17,7 @@ namespace Microsoft.AspNet.Http
         /// <summary>
         /// Represents the empty query string. This field is read-only.
         /// </summary>
-        public static readonly QueryString Empty = new QueryString(String.Empty);
+        public static readonly QueryString Empty = new QueryString(string.Empty);
 
         private readonly string _value;
 
@@ -68,7 +68,6 @@ namespace Microsoft.AspNet.Http
         /// dangerous are escaped.
         /// </summary>
         /// <returns>The query string value</returns>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1055:UriReturnValuesShouldNotBeStrings", Justification = "Purpose of the method is to return a string")]
         public string ToUriComponent()
         {
             // Escape things properly so System.Uri doesn't mis-interpret the data.
@@ -81,10 +80,9 @@ namespace Microsoft.AspNet.Http
         /// </summary>
         /// <param name="uriComponent">The escaped query as it appears in the URI format.</param>
         /// <returns>The resulting QueryString</returns>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1057:StringUriOverloadsCallSystemUriOverloads", Justification = "Delimiter characters ? and # must be escaped by this method instead of truncating the value")]
         public static QueryString FromUriComponent(string uriComponent)
         {
-            if (String.IsNullOrEmpty(uriComponent))
+            if (string.IsNullOrEmpty(uriComponent))
             {
                 return new QueryString(string.Empty);
             }
@@ -119,7 +117,16 @@ namespace Microsoft.AspNet.Http
         /// <returns>The resulting QueryString</returns>
         public static QueryString Create(string name, string value)
         {
-            return new QueryString("?" + UrlEncoder.Default.UrlEncode(name) + '=' + UrlEncoder.Default.UrlEncode(value));
+            if (name == null)
+            {
+                throw new ArgumentNullException(nameof(name));
+            }
+            if (value == null)
+            {
+                throw new ArgumentNullException(nameof(value));
+            }
+
+            return new QueryString($"?{UrlEncoder.Default.Encode(name)}={UrlEncoder.Default.Encode(value)}");
         }
 
         /// <summary>
@@ -135,9 +142,9 @@ namespace Microsoft.AspNet.Http
             {
                 builder.Append(first ? "?" : "&");
                 first = false;
-                builder.Append(UrlEncoder.Default.UrlEncode(pair.Key));
+                builder.Append(UrlEncoder.Default.Encode(pair.Key));
                 builder.Append("=");
-                builder.Append(UrlEncoder.Default.UrlEncode(pair.Value));
+                builder.Append(UrlEncoder.Default.Encode(pair.Value));
             }
 
             return new QueryString(builder.ToString());
@@ -158,9 +165,9 @@ namespace Microsoft.AspNet.Http
                 {
                     builder.Append(first ? "?" : "&");
                     first = false;
-                    builder.Append(UrlEncoder.Default.UrlEncode(pair.Key));
+                    builder.Append(UrlEncoder.Default.Encode(pair.Key));
                     builder.Append("=");
-                    builder.Append(UrlEncoder.Default.UrlEncode(value));
+                    builder.Append(UrlEncoder.Default.Encode(value));
                 }
             }
 
@@ -184,6 +191,15 @@ namespace Microsoft.AspNet.Http
 
         public QueryString Add(string name, string value)
         {
+            if (name == null)
+            {
+                throw new ArgumentNullException(nameof(name));
+            }
+            if (value == null)
+            {
+                throw new ArgumentNullException(nameof(value));
+            }
+
             if (!HasValue || Value.Equals("?", StringComparison.Ordinal))
             {
                 return Create(name, value);
@@ -191,9 +207,9 @@ namespace Microsoft.AspNet.Http
 
             var builder = new StringBuilder(Value);
             builder.Append("&");
-            builder.Append(UrlEncoder.Default.UrlEncode(name));
+            builder.Append(UrlEncoder.Default.Encode(name));
             builder.Append("=");
-            builder.Append(UrlEncoder.Default.UrlEncode(value));
+            builder.Append(UrlEncoder.Default.Encode(value));
             return new QueryString(builder.ToString());
         }
 
@@ -213,7 +229,7 @@ namespace Microsoft.AspNet.Http
 
         public override int GetHashCode()
         {
-            return (_value != null ? _value.GetHashCode() : 0);
+            return _value?.GetHashCode() ?? 0;
         }
 
         public static bool operator ==(QueryString left, QueryString right)

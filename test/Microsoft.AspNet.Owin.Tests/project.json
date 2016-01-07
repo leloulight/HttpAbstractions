@@ -1,8 +1,15 @@
 {
   "dependencies": {
+<<<<<<< HEAD
     "Microsoft.AspNet.Http": "1.0.0-rc1-final",
     "Microsoft.AspNet.Owin": "1.0.0-rc1-final",
     "xunit.runner.aspnet": "2.0.0-aspnet-rc1-final"
+=======
+    "Microsoft.AspNet.Http": "1.0.0-*",
+    "Microsoft.AspNet.Owin": "1.0.0-*",
+    "Microsoft.Extensions.DependencyInjection": "1.0.0-*",
+    "xunit.runner.aspnet": "2.0.0-aspnet-*"
+>>>>>>> refs/remotes/aspnet/dev
   },
   "commands": {
     "test": "xunit.runner.aspnet"

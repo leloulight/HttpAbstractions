@@ -5,6 +5,9 @@ using System.IO;
 
 namespace Microsoft.AspNet.Http
 {
+    /// <summary>
+    /// Represents a file sent with the HttpRequest.
+    /// </summary>
     public interface IFormFile
     {
         string ContentType { get; }
@@ -14,6 +17,10 @@ namespace Microsoft.AspNet.Http
         IHeaderDictionary Headers { get; }
 
         long Length { get; }
+
+        string Name { get; }
+
+        string FileName { get; }
 
         Stream OpenReadStream();
     }

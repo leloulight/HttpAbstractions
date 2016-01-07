@@ -4,8 +4,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Encodings.Web;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Extensions.WebEncoders;
 
 namespace Microsoft.AspNet.WebUtilities
 {
@@ -92,9 +92,9 @@ namespace Microsoft.AspNet.WebUtilities
             foreach (var parameter in queryString)
             {
                 sb.Append(hasQuery ? '&' : '?');
-                sb.Append(UrlEncoder.Default.UrlEncode(parameter.Key));
+                sb.Append(UrlEncoder.Default.Encode(parameter.Key));
                 sb.Append('=');
-                sb.Append(UrlEncoder.Default.UrlEncode(parameter.Value));
+                sb.Append(UrlEncoder.Default.Encode(parameter.Value));
                 hasQuery = true;
             }
 
@@ -105,15 +105,41 @@ namespace Microsoft.AspNet.WebUtilities
         /// <summary>
         /// Parse a query string into its component key and value parts.
         /// </summary>
-        /// <param name="text">The raw query string value, with or without the leading '?'.</param>
+        /// <param name="queryString">The raw query string value, with or without the leading '?'.</param>
         /// <returns>A collection of parsed keys and values.</returns>
-        public static IDictionary<string, StringValues> ParseQuery(string queryString)
+        public static Dictionary<string, StringValues> ParseQuery(string queryString)
         {
-            if (!string.IsNullOrEmpty(queryString) && queryString[0] == '?')
+            var result = ParseNullableQuery(queryString);
+
+            if (result == null)
             {
-                queryString = queryString.Substring(1);
+                return new Dictionary<string, StringValues>();
             }
+
+            return result;
+        }
+
+
+        /// <summary>
+        /// Parse a query string into its component key and value parts.
+        /// </summary>
+        /// <param name="queryString">The raw query string value, with or without the leading '?'.</param>
+        /// <returns>A collection of parsed keys and values, null if there are no entries.</returns>
+        public static Dictionary<string, StringValues> ParseNullableQuery(string queryString)
+        {
             var accumulator = new KeyValueAccumulator();
+
+            if (string.IsNullOrEmpty(queryString) || queryString == "?")
+            {
+                return null;
+            }
+
+            int scanIndex = 0;
+            if (queryString[0] == '?')
+            {
+                scanIndex = 1;
+            }
+
 
             int textLength = queryString.Length;
             int equalIndex = queryString.IndexOf('=');
@@ -121,7 +147,6 @@ namespace Microsoft.AspNet.WebUtilities
             {
                 equalIndex = textLength;
             }
-            int scanIndex = 0;
             while (scanIndex < textLength)
             {
                 int delimiterIndex = queryString.IndexOf('&', scanIndex);
@@ -147,6 +172,11 @@ namespace Microsoft.AspNet.WebUtilities
                     }
                 }
                 scanIndex = delimiterIndex + 1;
+            }
+
+            if (!accumulator.HasValues)
+            {
+                return null;
             }
 
             return accumulator.GetResults();

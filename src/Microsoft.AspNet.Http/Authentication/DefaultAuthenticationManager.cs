@@ -12,45 +12,27 @@ using Microsoft.AspNet.Http.Features.Authentication.Internal;
 
 namespace Microsoft.AspNet.Http.Authentication.Internal
 {
-    public class DefaultAuthenticationManager : AuthenticationManager, IFeatureCache
+    public class DefaultAuthenticationManager : AuthenticationManager
     {
-        private readonly IFeatureCollection _features;
-        private int _cachedFeaturesRevision = -1;
-
-        private IHttpAuthenticationFeature _authentication;
-        private IHttpResponseFeature _response;
+        private FeatureReferences<IHttpAuthenticationFeature> _features;
 
         public DefaultAuthenticationManager(IFeatureCollection features)
         {
-            _features = features;
+            Initialize(features);
         }
 
-        void IFeatureCache.CheckFeaturesRevision()
+        public virtual void Initialize(IFeatureCollection features)
         {
-            if (_cachedFeaturesRevision != _features.Revision)
-            {
-                _authentication = null;
-                _response = null;
-                _cachedFeaturesRevision = _features.Revision;
-            }
+            _features = new FeatureReferences<IHttpAuthenticationFeature>(features);
         }
 
-        private IHttpAuthenticationFeature HttpAuthenticationFeature
+        public virtual void Uninitialize()
         {
-            get
-            {
-                return FeatureHelpers.GetOrCreateAndCache(
-                    this, 
-                    _features, 
-                    () => new HttpAuthenticationFeature(), 
-                    ref _authentication);
-            }
+            _features = default(FeatureReferences<IHttpAuthenticationFeature>);
         }
 
-        private IHttpResponseFeature HttpResponseFeature
-        {
-            get { return FeatureHelpers.GetAndCache(this, _features, ref _response); }
-        }
+        private IHttpAuthenticationFeature HttpAuthenticationFeature =>
+            _features.Fetch(ref _features.Cache, f => new HttpAuthenticationFeature());
 
         public override IEnumerable<AuthenticationDescription> GetAuthenticationSchemes()
         {

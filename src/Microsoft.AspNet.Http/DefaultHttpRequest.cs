@@ -11,78 +11,41 @@ using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.AspNet.Http.Internal
 {
-    public class DefaultHttpRequest : HttpRequest, IFeatureCache
+    public class DefaultHttpRequest : HttpRequest
     {
-        private readonly DefaultHttpContext _context;
-        private readonly IFeatureCollection _features;
-        private int _cachedFeaturesRevision = -1;
+        private HttpContext _context;
+        private FeatureReferences<FeatureInterfaces> _features;
 
-        private IHttpRequestFeature _request;
-        private IQueryFeature _query;
-        private IFormFeature _form;
-        private IRequestCookiesFeature _cookies;
+        public DefaultHttpRequest(HttpContext context, IFeatureCollection features)
+        {
+            Initialize(context, features);
+        }
 
-        public DefaultHttpRequest(DefaultHttpContext context, IFeatureCollection features)
+        public virtual void Initialize(HttpContext context, IFeatureCollection features)
         {
             _context = context;
-            _features = features;
+            _features = new FeatureReferences<FeatureInterfaces>(features);
         }
 
-        void IFeatureCache.CheckFeaturesRevision()
+        public virtual void Uninitialize()
         {
-            if (_cachedFeaturesRevision != _features.Revision)
-            {
-                _request = null;
-                _query = null;
-                _form = null;
-                _cookies = null;
-                _cachedFeaturesRevision = _features.Revision;
-            }
+            _context = null;
+            _features = default(FeatureReferences<FeatureInterfaces>);
         }
 
-        private IHttpRequestFeature HttpRequestFeature
-        {
-            get { return FeatureHelpers.GetAndCache(this, _features, ref _request); }
-        }
+        public override HttpContext HttpContext => _context;
 
-        private IQueryFeature QueryFeature
-        {
-            get
-            {
-                return FeatureHelpers.GetOrCreateAndCache(
-                    this, 
-                    _features, 
-                    (f) => new QueryFeature(f), 
-                    ref _query);
-            }
-        }
+        private IHttpRequestFeature HttpRequestFeature =>
+            _features.Fetch(ref _features.Cache.Request, f => null);
 
-        private IFormFeature FormFeature
-        {
-            get
-            {
-                return FeatureHelpers.GetOrCreateAndCache(
-                    this,
-                    _features,
-                    this,
-                    (r) => new FormFeature(r),
-                    ref _form);
-            }
-        }
+        private IQueryFeature QueryFeature =>
+            _features.Fetch(ref _features.Cache.Query, f => new QueryFeature(f));
 
-        private IRequestCookiesFeature RequestCookiesFeature
-        {
-            get
-            {
-                return FeatureHelpers.GetOrCreateAndCache(
-                    this, 
-                    _features, 
-                    (f) => new RequestCookiesFeature(f), 
-                    ref _cookies);
-            }
-        }
+        private IFormFeature FormFeature =>
+            _features.Fetch(ref _features.Cache.Form, this, f => new FormFeature(f));
 
-        public override HttpContext HttpContext { get { return _context; } }
+        private IRequestCookiesFeature RequestCookiesFeature =>
+            _features.Fetch(ref _features.Cache.Cookies, f => new RequestCookiesFeature(f));
 
         public override PathString PathBase
         {
@@ -144,7 +107,7 @@ namespace Microsoft.AspNet.Http.Internal
             set { Headers["Host"] = value.ToUriComponent(); }
         }
 
-        public override IReadableStringCollection Query
+        public override IQueryCollection Query
         {
             get { return QueryFeature.Query; }
             set { QueryFeature.Query = value; }
@@ -161,7 +124,7 @@ namespace Microsoft.AspNet.Http.Internal
             get { return HttpRequestFeature.Headers; }
         }
 
-        public override IReadableStringCollection Cookies
+        public override IRequestCookieCollection Cookies
         {
             get { return RequestCookiesFeature.Cookies; }
             set { RequestCookiesFeature.Cookies = value; }
@@ -187,6 +150,14 @@ namespace Microsoft.AspNet.Http.Internal
         public override Task<IFormCollection> ReadFormAsync(CancellationToken cancellationToken)
         {
             return FormFeature.ReadFormAsync(cancellationToken);
+        }
+
+        struct FeatureInterfaces
+        {
+            public IHttpRequestFeature Request;
+            public IQueryFeature Query;
+            public IFormFeature Form;
+            public IRequestCookiesFeature Cookies;
         }
     }
 }

@@ -9,16 +9,12 @@
             "StrictSemanticVersionValidationRule"
         ],
         "packages": {
-            "Microsoft.AspNet.Html.Abstractions": { },
             "Microsoft.AspNet.Http": { },
             "Microsoft.AspNet.Http.Abstractions": { },
             "Microsoft.AspNet.Http.Extensions": { },
             "Microsoft.AspNet.Http.Features": { },
             "Microsoft.AspNet.Owin": { },
             "Microsoft.AspNet.WebUtilities": { },
-            "Microsoft.Extensions.BufferedHtmlContent.Sources": { },
-            "Microsoft.Extensions.WebEncoders": { },
-            "Microsoft.Extensions.WebEncoders.Core": { },
             "Microsoft.Net.Http.Headers": { }
         }
     },

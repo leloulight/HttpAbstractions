@@ -5,32 +5,18 @@ using Microsoft.AspNet.Http.Internal;
 
 namespace Microsoft.AspNet.Http.Features.Internal
 {
-    public class ResponseCookiesFeature : IResponseCookiesFeature, IFeatureCache
+    public class ResponseCookiesFeature : IResponseCookiesFeature
     {
-        private readonly IFeatureCollection _features;
-        private int _cachedFeaturesRevision = -1;
-
-        private IHttpResponseFeature _response;
+        private FeatureReferences<IHttpResponseFeature> _features;
         private IResponseCookies _cookiesCollection;
 
         public ResponseCookiesFeature(IFeatureCollection features)
         {
-            _features = features;
+            _features = new FeatureReferences<IHttpResponseFeature>(features);
         }
 
-        void IFeatureCache.CheckFeaturesRevision()
-        {
-            if (_cachedFeaturesRevision != _features.Revision)
-            {
-                _response = null;
-                _cachedFeaturesRevision = _features.Revision;
-            }
-        }
-
-        private IHttpResponseFeature HttpResponseFeature
-        {
-            get { return FeatureHelpers.GetAndCache(this, _features, ref _response); }
-        }
+        private IHttpResponseFeature HttpResponseFeature =>
+            _features.Fetch(ref _features.Cache, f => null);
 
         public IResponseCookies Cookies
         {
@@ -39,7 +25,7 @@ namespace Microsoft.AspNet.Http.Features.Internal
                 if (_cookiesCollection == null)
                 {
                     var headers = HttpResponseFeature.Headers;
-                    _cookiesCollection = new ResponseCookies(new HeaderDictionary(headers));
+                    _cookiesCollection = new ResponseCookies(headers);
                 }
                 return _cookiesCollection;
             }

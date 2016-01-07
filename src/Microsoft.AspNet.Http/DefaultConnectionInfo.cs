@@ -10,52 +10,30 @@ using Microsoft.AspNet.Http.Features.Internal;
 
 namespace Microsoft.AspNet.Http.Internal
 {
-    public class DefaultConnectionInfo : ConnectionInfo, IFeatureCache
+    public class DefaultConnectionInfo : ConnectionInfo
     {
-        private readonly IFeatureCollection _features;
-        private int _cachedFeaturesRevision = -1;
-
-        private IHttpConnectionFeature _connection;
-        private ITlsConnectionFeature _tlsConnection;
+        private FeatureReferences<FeatureInterfaces> _features;
 
         public DefaultConnectionInfo(IFeatureCollection features)
         {
-            _features = features;
+            Initialize(features);
         }
 
-        void IFeatureCache.CheckFeaturesRevision()
+        public virtual void Initialize( IFeatureCollection features)
         {
-            if (_cachedFeaturesRevision != _features.Revision)
-            {
-                _connection = null;
-                _tlsConnection = null;
-                _cachedFeaturesRevision = _features.Revision;
-            }
+            _features = new FeatureReferences<FeatureInterfaces>(features);
         }
 
-        private IHttpConnectionFeature HttpConnectionFeature
+        public virtual void Uninitialize()
         {
-            get
-            {
-                return FeatureHelpers.GetOrCreateAndCache(
-                    this, 
-                    _features, 
-                    () => new HttpConnectionFeature(), 
-                    ref _connection);
-            }
+            _features = default(FeatureReferences<FeatureInterfaces>);
         }
 
-        private ITlsConnectionFeature TlsConnectionFeature
-        {
-            get
-            {
-                return FeatureHelpers.GetOrCreateAndCache(
-                    this, 
-                    _features,
-                    () => new TlsConnectionFeature(),
-                    ref _tlsConnection);
-            }
-        }
+        private IHttpConnectionFeature HttpConnectionFeature =>
+            _features.Fetch(ref _features.Cache.Connection, f => new HttpConnectionFeature());
+
+        private ITlsConnectionFeature TlsConnectionFeature=>
+            _features.Fetch(ref _features.Cache.TlsConnection, f => new TlsConnectionFeature());
 
         public override IPAddress RemoteIpAddress
         {
@@ -96,6 +74,12 @@ namespace Microsoft.AspNet.Http.Internal
         public override Task<X509Certificate2> GetClientCertificateAsync(CancellationToken cancellationToken = new CancellationToken())
         {
             return TlsConnectionFeature.GetClientCertificateAsync(cancellationToken);
+        }
+
+        struct FeatureInterfaces
+        {
+            public IHttpConnectionFeature Connection;
+            public ITlsConnectionFeature TlsConnection;
         }
     }
 }

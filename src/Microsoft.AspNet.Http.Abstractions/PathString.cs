@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Linq;
-using Microsoft.Extensions.WebEncoders;
+using System.Text.Encodings.Web;
+using Microsoft.AspNet.Http.Abstractions;
 
 namespace Microsoft.AspNet.Http
 {
@@ -12,10 +12,12 @@ namespace Microsoft.AspNet.Http
     /// </summary>
     public struct PathString : IEquatable<PathString>
     {
+        private static readonly char[] splitChar = { '/' };
+
         /// <summary>
         /// Represents the empty path. This field is read-only.
         /// </summary>
-        public static readonly PathString Empty = new PathString(String.Empty);
+        public static readonly PathString Empty = new PathString(string.Empty);
 
         private readonly string _value;
 
@@ -28,7 +30,7 @@ namespace Microsoft.AspNet.Http
         {
             if (!string.IsNullOrEmpty(value) && value[0] != '/')
             {
-                throw new ArgumentException(""/*Resources.Exception_PathMustStartWithSlash*/, nameof(value));
+                throw new ArgumentException(Resources.FormatException_PathMustStartWithSlash(nameof(value)), nameof(value));
             }
             _value = value;
         }
@@ -62,11 +64,27 @@ namespace Microsoft.AspNet.Http
         /// Provides the path string escaped in a way which is correct for combining into the URI representation.
         /// </summary>
         /// <returns>The escaped path value</returns>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1055:UriReturnValuesShouldNotBeStrings", Justification = "Purpose of the method is to return a string")]
         public string ToUriComponent()
         {
             // TODO: Measure the cost of this escaping and consider optimizing.
-            return HasValue ? string.Join("/", _value.Split('/').Select(UrlEncoder.Default.UrlEncode)) : string.Empty;
+            if (!HasValue)
+            {
+                return string.Empty;
+            }
+            var values = _value.Split(splitChar);
+            var changed = false;
+            for (var i = 0; i < values.Length; i++)
+            {
+                var value = values[i];
+                values[i] = UrlEncoder.Default.Encode(value);
+
+                if (!changed && value != values[i])
+                {
+                    changed = true;
+                }
+            }
+
+            return changed ? string.Join("/", values) : _value;
         }
 
         /// <summary>
@@ -75,7 +93,6 @@ namespace Microsoft.AspNet.Http
         /// </summary>
         /// <param name="uriComponent">The escaped path as it appears in the URI format.</param>
         /// <returns>The resulting PathString</returns>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1057:StringUriOverloadsCallSystemUriOverloads", Justification = "Requirements not compatible with URI processing")]
         public static PathString FromUriComponent(string uriComponent)
         {
             // REVIEW: what is the exactly correct thing to do?
@@ -133,7 +150,6 @@ namespace Microsoft.AspNet.Http
         /// <param name="other">The <see cref="PathString"/> to compare.</param>
         /// <param name="remaining">The remaining segments after the match.</param>
         /// <returns>true if value matches the beginning of this string; otherwise, false.</returns>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "1#", Justification = "Secondary information needed after boolean result obtained")]
         public bool StartsWithSegments(PathString other, out PathString remaining)
         {
             return StartsWithSegments(other, StringComparison.OrdinalIgnoreCase, out remaining);
@@ -147,7 +163,6 @@ namespace Microsoft.AspNet.Http
         /// <param name="comparisonType">One of the enumeration values that determines how this <see cref="PathString"/> and value are compared.</param>
         /// <param name="remaining">The remaining segments after the match.</param>
         /// <returns>true if value matches the beginning of this string; otherwise, false.</returns>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1021:AvoidOutParameters", MessageId = "1#", Justification = "Secondary information needed after boolean result obtained")]
         public bool StartsWithSegments(PathString other, StringComparison comparisonType, out PathString remaining)
         {
             var value1 = Value ?? string.Empty;

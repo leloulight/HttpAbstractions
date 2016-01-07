@@ -49,7 +49,7 @@ namespace Microsoft.Net.Http.Headers
         private ICollection<string> _privateHeaders;
         private bool _mustRevalidate;
         private bool _proxyRevalidate;
-        private ICollection<NameValueHeaderValue> _extensions;
+        private IList<NameValueHeaderValue> _extensions;
 
         public CacheControlHeaderValue()
         {
@@ -158,7 +158,7 @@ namespace Microsoft.Net.Http.Headers
             set { _proxyRevalidate = value; }
         }
 
-        public ICollection<NameValueHeaderValue> Extensions
+        public IList<NameValueHeaderValue> Extensions
         {
             get
             {
@@ -369,7 +369,7 @@ namespace Microsoft.Net.Http.Headers
                     return 0;
                 }
 
-                nameValueList.Add(nameValue as NameValueHeaderValue);
+                nameValueList.Add(nameValue);
             }
 
             // If we get here, we were able to successfully parse the string as list of name/value pairs. Now analyze
